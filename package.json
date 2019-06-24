@@ -1,0 +1,39 @@
+{
+	"name": "lighthouse",
+	"description": "A Webview API Sample",
+	"version": "0.0.1",
+	"publisher": "vscode-samples",
+	"engines": {
+		"vscode": "^1.32.0"
+	},
+	"categories": [
+		"Other"
+	],
+	"activationEvents": [
+		"onCommand:lighthouse.start",
+		"onWebviewPanel:lighthouse"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"commands": [
+			{
+				"command": "lighthouse.start",
+				"title": "Open Webview",
+				"category": "Lighthouse"
+			}
+		]
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc  -p ./",
+		"lint": "tslint -p ./",
+		"watch": "tsc -w -p ./"
+	},
+	"dependencies": {},
+	"devDependencies": {
+		"@types/node": "^10.5.2",
+		"tslint": "^5.16.0",
+		"typescript": "^3.4.5",
+		"@types/vscode": "^1.32.0"
+	}
+}
