@@ -1,5 +1,2 @@
-
-out/extension.js.map
-out/extension.js
-out/extension.js
-out/extension.js.map
+out
+node_modules

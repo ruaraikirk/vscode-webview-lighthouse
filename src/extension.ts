@@ -1,4 +1,10 @@
 import * as vscode from 'vscode';
+const lighthouse = require('lighthouse');
+const chromeLauncher = require('chrome-launcher');
+
+const opts = {
+    chromeFlags: ['--show-paint-rects']
+  };
 
 export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
@@ -21,9 +27,11 @@ export function activate(context: vscode.ExtensionContext) {
 			message => {
 				switch (message.command) {
 				case "GenerateLemon":
-					vscode.window.showInformationMessage("Message recieved from webview4!");
-					panel.webview.postMessage({ results: 'SomeResultJSON' });
-					console.log('posting results');
+					vscode.window.showInformationMessage("Message recieved from webview!");
+						// go off and generate lemon stats
+						launchChromeAndRunLighthouse('http://www.sap.com', opts).then(function(results) {
+							panel.webview.postMessage({ results: 'DONE!!' });
+						})
 					return;
 				}
 			},
@@ -32,6 +40,16 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 		})
 	);
+}
+
+
+
+async function launchChromeAndRunLighthouse(url: string, opts: any, config: any = null) {
+    const chrome = await chromeLauncher.launch({chromeFlags: opts.chromeFlags});
+    opts.port = chrome.port;
+    const results = await lighthouse(url, opts, config);
+    await chrome.kill();
+    console.log(results);
 }
 
 function getWebviewContent() {

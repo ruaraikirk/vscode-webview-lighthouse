@@ -1,5 +1,5 @@
 {
-	"name": "lighthouse",
+	"name": "lighthousevscode",
 	"description": "A Webview API Sample",
 	"version": "0.0.1",
 	"publisher": "vscode-samples",
@@ -29,7 +29,10 @@
 		"lint": "tslint -p ./",
 		"watch": "tsc -w -p ./"
 	},
-	"dependencies": {},
+	"dependencies": {
+		"chrome-launcher": "^0.10.7",
+		"lighthouse": "^5.1.0"
+	},
 	"devDependencies": {
 		"@types/node": "^10.5.2",
 		"tslint": "^5.16.0",
