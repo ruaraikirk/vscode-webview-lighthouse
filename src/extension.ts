@@ -20,8 +20,10 @@ export function activate(context: vscode.ExtensionContext) {
 		panel.webview.onDidReceiveMessage(
 			message => {
 				switch (message.command) {
-				case "Hello":
-					vscode.window.showInformationMessage("Message recieved from webview!");
+				case "GenerateLemon":
+					vscode.window.showInformationMessage("Message recieved from webview4!");
+					panel.webview.postMessage({ results: 'SomeResultJSON' });
+					console.log('posting results');
 					return;
 				}
 			},
@@ -46,9 +48,14 @@ function getWebviewContent() {
 					<script>
 						const vscode = acquireVsCodeApi();
 						function sendMessage(){
-						vscode.postMessage({command: 'Hello'})
+							vscode.postMessage({command: 'GenerateLemon'})
 						}
+
+						window.addEventListener('message', event => {
+							document.getElementById('results').innerHTML = event.data.results;
+						});						
 					</script>
+					<div id="results">Results go here</div>
 				</body>
 			</html>`;
 }
