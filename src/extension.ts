@@ -1,4 +1,7 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
+import { eventNames } from 'cluster';
 const lighthouse = require('lighthouse');
 const chromeLauncher = require('chrome-launcher');
 
@@ -23,6 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 		// And set its HTML content
 		panel.webview.html = getWebviewContent();
+		// panel.webview.html = fs.readFileSync(path.resolve('/Users/i311186/Documents', `output.html`), 'utf8');
 		
 		panel.webview.onDidReceiveMessage(
 			message => {
@@ -30,11 +34,21 @@ export function activate(context: vscode.ExtensionContext) {
 				case "GenerateLemon":
 					vscode.window.showInformationMessage("Starting the Run for Lighthouse");
 					// go off and generate lemon stats
-					launchChromeAndRunLighthouse('http://www.sap.com', opts)
+					return launchChromeAndRunLighthouse('http://www.sap.com', opts)
 							.then((res) => {
-								panel.webview.postMessage({ results: JSON.stringify(res) })
+								const filePath = path.resolve('/Users/i311186/Documents/lighthouse', `output.html`);
+								fs.writeFileSync(filePath, res.report);
+								const jsonFile = path.resolve('/Users/i311186/Documents/lighthouse', `output.json`);
+								fs.writeFileSync(jsonFile, JSON.stringify(res.lhr.categories));
 								vscode.window.showInformationMessage("Lighthouse Run Complete");
-								return;
+
+								const results = { results: res.lhr.categories, link: filePath}
+
+								console.log(results);
+								return setTimeout(function() {
+									panel.webview.postMessage({ results: res.lhr.categories, link: `<a href=file://${filePath}>Link Path to Lighthouse Report</a>`})
+									// panel.webview.html = res.report;
+								}, 3000)
 							});
 				}
 			},
@@ -53,7 +67,7 @@ async function launchChromeAndRunLighthouse(url: string, opts: any, config: any 
 	opts.emulatedFormFactor = 'none';
 	opts.throttlingMethod = 'provided';
 	opts.disableStorageReset = 'true';
-	opts.output = 'json';
+	opts.output = 'html';
     const results = await lighthouse(url, opts, config);
 	await chrome.kill();
 	return results;
@@ -78,11 +92,37 @@ function getWebviewContent() {
 
 						window.addEventListener('message', event => {
 							document.getElementById('container').innerHTML = "<p>See Results below</p>";
-							document.getElementById('results').innerHTML = event.data.results;
+							document.getElementById('link').innerHTML = event.data.link;
+							// document.getElementById('accessibilty').innerHTML = JSON.stringify(event.data.results.accessibility);
+							// document.getElementById('pwacontainer').innerHTML = "<p>See PWA Results below</p>";
+							// document.getElementById('pwa').innerHTML = JSON.stringify(event.data.results.pwa);
+							// document.getElementById('performancecontainer').innerHTML = "<p>See Perf Results below</p>";
+							// document.getElementById('performance').innerHTML = JSON.stringify(event.data.results.performance);
+							// document.getElementById('best-practicescontainer').innerHTML = "<p>See Best-Practices Results below</p>";
+							// document.getElementById('best-practices').innerHTML = JSON.stringify(event.data.results.best-practices);
+							// document.getElementById('seocontainer').innerHTML = "<p>See SEO Results below</p>";
+							// document.getElementById('seo').innerHTML = JSON.stringify(event.data.results.seo);
+
 						});						
 					</script>
 					<div id="container"></div>
-					<div id="results">Results go here</div>
+					<div id="link"></div>
+					<div id="jsonresult"></div>
+					
+
+
+
+					<div id="accessibilitycontainer"></div>
+					<div id="accessibilty"></div>
+					<div id="pwacontainer"></div>
+					<div id="pwa"></div>
+					<div id="performancecontainer"></div>
+					<div id="performance"></div>
+					<div id="best-practicescontainer"></div>
+					<div id="best-practices"></div>
+					<div id="seocontainer"></div>
+					<div id="seo"></div>
+					
 				</body>
 			</html>`;
 }
