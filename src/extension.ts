@@ -1,13 +1,15 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as puppeteer from 'puppeteer';
 import { eventNames } from 'cluster';
 const lighthouse = require('lighthouse');
 const chromeLauncher = require('chrome-launcher');
 
+
 const opts = {
 	chromeFlags: ['--show-paint-rects', '--disable-gpu','--no-sandbox', '--disable-web-security',
-	'--disable-dev-shm-usage', '--headless']
+	'--disable-dev-shm-usage', '--window-size=1900,1200', '--headless']
   };
 
 export function activate(context: vscode.ExtensionContext) {
@@ -20,13 +22,14 @@ export function activate(context: vscode.ExtensionContext) {
 			vscode.ViewColumn.One,
 			{
 				// Enable scripts in the webview
-				enableScripts: true
+				enableScripts: true,
+				retainContextWhenHidden: true,
+				localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'out'))]
 			}
 		);
 
 		// And set its HTML content
 		panel.webview.html = getWebviewContent();
-		// panel.webview.html = fs.readFileSync(path.resolve('/Users/i311186/Documents', `output.html`), 'utf8');
 		
 		panel.webview.onDidReceiveMessage(
 			message => {
@@ -34,21 +37,54 @@ export function activate(context: vscode.ExtensionContext) {
 				case "GenerateLemon":
 					vscode.window.showInformationMessage("Starting the Run for Lighthouse");
 					// go off and generate lemon stats
-					return launchChromeAndRunLighthouse('http://www.sap.com', opts)
+					return launchChromeAndRunLighthouse('http://www.google.com', opts)
 							.then((res) => {
-								const filePath = path.resolve('/Users/i311186/Documents/lighthouse', `output.html`);
-								fs.writeFileSync(filePath, res.report);
-								const jsonFile = path.resolve('/Users/i311186/Documents/lighthouse', `output.json`);
-								fs.writeFileSync(jsonFile, JSON.stringify(res.lhr.categories));
+								let htmlStatic;
+								// Get path to resource on disk
+								const onDiskPath = vscode.Uri.file(
+									path.join(context.extensionPath, 'out', 'report.html')
+								);
+								  
+								
+								
+								// And get the special URI to use with the webview
+								const output = onDiskPath.with({ scheme: 'vscode-resource' });
+
+								const reportFile = res.report.replace('body class="lh-root lh-vars"', 'body class="lh-root lh-vars dark"');
+
+								fs.writeFileSync(output.path, reportFile);
 								vscode.window.showInformationMessage("Lighthouse Run Complete");
 
-								const results = { results: res.lhr.categories, link: filePath}
+								ssr(output.path).then(html => {
+									htmlStatic = html
+									const staticPath = vscode.Uri.file(
+										path.join(context.extensionPath, 'out', 'static.html')
+									);
+									const stat = staticPath.with({ scheme: 'vscode-resource' });
 
-								console.log(results);
-								return setTimeout(function() {
-									panel.webview.postMessage({ results: res.lhr.categories, link: `<a href=file://${filePath}>Link Path to Lighthouse Report</a>`})
-									// panel.webview.html = res.report;
-								}, 3000)
+									fs.writeFileSync(stat.path, htmlStatic);
+									
+								});
+								
+								  
+								panel.webview.postMessage({ results: res.lhr, file: htmlStatic, report: reportFile});													
+								
+								// // Launch 2nd Tab with report beside original
+								// const report = vscode.window.createWebviewPanel(
+								// 	'lighthouse Report',
+								// 	'Lighthouse Report Webview',
+								// 	vscode.ViewColumn.Two,
+								// 	{
+								// 		// Enable scripts in the webview
+								// 		enableScripts: true,
+								// 		retainContextWhenHidden: true,
+								// 		localResourceRoots: [vscode.Uri.file(path.join(context.extensionPath, 'out'))]
+										
+								// 	}
+								// );
+								// report.webview.html = reportFile;
+
+
 							});
 				}
 			},
@@ -58,6 +94,7 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 }
+
 
 
 
@@ -72,6 +109,16 @@ async function launchChromeAndRunLighthouse(url: string, opts: any, config: any 
 	await chrome.kill();
 	return results;
 }
+
+async function ssr(url: any) {
+	console.log(`file://${url}`);
+	const browser = await puppeteer.launch({headless: true});
+	const page = await browser.newPage();
+	await page.goto(`file://${url}`, {waitUntil: 'networkidle0'});
+	const html = await page.content(); // serialized HTML of page DOM.
+	await browser.close();
+	return html;
+  }
 
 function getWebviewContent() {
 	return `<!DOCTYPE html>
@@ -91,38 +138,22 @@ function getWebviewContent() {
 						}
 
 						window.addEventListener('message', event => {
-							document.getElementById('container').innerHTML = "<p>See Results below</p>";
-							document.getElementById('link').innerHTML = event.data.link;
-							// document.getElementById('accessibilty').innerHTML = JSON.stringify(event.data.results.accessibility);
-							// document.getElementById('pwacontainer').innerHTML = "<p>See PWA Results below</p>";
-							// document.getElementById('pwa').innerHTML = JSON.stringify(event.data.results.pwa);
-							// document.getElementById('performancecontainer').innerHTML = "<p>See Perf Results below</p>";
-							// document.getElementById('performance').innerHTML = JSON.stringify(event.data.results.performance);
-							// document.getElementById('best-practicescontainer').innerHTML = "<p>See Best-Practices Results below</p>";
-							// document.getElementById('best-practices').innerHTML = JSON.stringify(event.data.results.best-practices);
-							// document.getElementById('seocontainer').innerHTML = "<p>See SEO Results below</p>";
-							// document.getElementById('seo').innerHTML = JSON.stringify(event.data.results.seo);
+							document.getElementById('container').innerHTML = "<p>See Results below for " + event.data.results.requestedUrl + "</p>";
+							
+
+							console.log(event.data.file)
+							
+
+
 
 						});						
 					</script>
 					<div id="container"></div>
 					<div id="link"></div>
-					<div id="jsonresult"></div>
-					
 
-
-
-					<div id="accessibilitycontainer"></div>
-					<div id="accessibilty"></div>
-					<div id="pwacontainer"></div>
-					<div id="pwa"></div>
-					<div id="performancecontainer"></div>
-					<div id="performance"></div>
-					<div id="best-practicescontainer"></div>
-					<div id="best-practices"></div>
-					<div id="seocontainer"></div>
-					<div id="seo"></div>
-					
+					<p>Frame is here</p>
+					<iframe id="iframe1" height="80%" width="100%">
+					</iframe>
 				</body>
 			</html>`;
 }
